@@ -28,13 +28,18 @@ class Graph():
     def __init__(self):
         self.adj = {}
         self.edges = []
+        self.sortedEdges = None
+        self.reverseSortedEdges = None
         self.nE = 0
         self.nV = 0
         self.minTimeStamp = float('inf')
         self.maxTimeStamp = float('-inf')
         self.medianTimeStamp = None
+        self.latestEdges = None
+        self.hasChanged = False
 
     def addEdge(self, edge: Edge):
+        self.hasChanged = True
         source = edge.source
         target = edge.target
         if source not in self.adj:
@@ -54,13 +59,36 @@ class Graph():
         self.maxTimeStamp = max(self.minTimeStamp, edge.timestamp)
 
     def removeEdge(self, edge: Edge):
+        self.hasChanged = True
         pass
 
-    def sortEdgesByTimestamp(self):
-        self.edges = sorted(self.edges, key=lambda e: e.timestamp, reverse=False)
+    def getSortedEdgesByTimestamp(self, reverse=False):
+        if reverse == True:
+            if self.reverseSortedEdges == None or self.hasChanged:
+                self.reverseSortedEdges = sorted(self.edges, key=lambda e: e.timestamp, reverse=True)
+            return self.reverseSortedEdges
+        else:
+            if self.sortedEdges == None or self.hasChanged:
+                self.sortedEdges = sorted(self.edges, key=lambda e: e.timestamp, reverse=False)
+            return self.sortedEdges
 
-    def sortEdgesByWeight(self):
-        self.edges = sorted(self.edges, key=lambda e: e.weight, reverse=False)
+    def getSortedEdgesByWeight(self, reverse=False):
+        pass
+
+    def getLatestEdges(self):
+        if self.latestEdges == None or self.hasChanged:
+            self.hasChanged = False
+            sortedEdges = self.getSortedEdgesByTimestamp(reverse=True)
+            marked = set()
+            self.latestEdges = {}
+            for edge in self.edges:
+                s = edge.source
+                t = edge.target
+                if (s,t) not in marked and (t,s) not in marked:
+                    marked.add((s,t))
+                    self.latestEdges[(s,t)] = edge
+                    self.latestEdges[(t,s)] = edge
+        return self.latestEdges
 
     def getCountEdges(self):
         return self.nE
@@ -69,8 +97,8 @@ class Graph():
         return self.nV
 
     def getTimestampsInfo(self):
-        self.sortEdgesByTimestamp()
-        self.medianTimeStamp = self.edges[self.nE // 2].timestamp
+        sortedEdges = self.getSortedEdgesByTimestamp()
+        self.medianTimeStamp = sortedEdges[self.nE // 2].timestamp
         return (self.minTimeStamp, self.medianTimeStamp, self.maxTimeStamp)
 
     def importCSV(self, filename):
@@ -89,7 +117,7 @@ class Graph():
 
 
 """
-TASK1
+TASK 1
 """
 def connected_components(graph: Graph):
     """ O(v + e) """
@@ -155,28 +183,81 @@ def local_bridges(graph: Graph):
     return local_bridges
 
 """
-TASK2
+TASK 2
 """
-
 def triadic_closures(graph):
 
     triads_closed = 0
-    graph.sortEdgesByTimestamp()
-    
+    sortedEdges = graph.getSortedEdgesByTimestamp()
+
     nEdges = graph.getCountEdges()
     median = nEdges // 2
     graph2 = Graph()
-    for i in range(median):
-        graph2.addEdge(graph.edges[i])
+    for i in range(median+1):
+        #ONLY ADD LATEST EDGE
+        s = sortedEdges[i].source
+        t = sortedEdges[i].target
+        if (s not in graph2.adj or t not in graph2.adj or (s not in graph2.adj[t] or t not in graph2.adj[s])):
+            graph2.addEdge(sortedEdges[i])
+
+    #print(graph2.adj)
+
     for i in range(median+1,nEdges,1):
-        newEdge = graph.edges[i]
-        source = newEdge.source
-        target = newEdge.target
-        graph2.addEdge(newEdge)
-        triads_closed += len(set(graph.adj[source]) & set(graph.adj[target]))
+        newEdge = sortedEdges[i]
+        s = newEdge.source
+        t = newEdge.target
+        if (s not in graph2.adj or t not in graph2.adj or (s not in graph2.adj[t] or t not in graph2.adj[s])):
+            graph2.addEdge(newEdge)
+            triads_closed += len(set(graph2.adj[s]) & set(graph2.adj[t]))
+        #print(triads_closed)
     return triads_closed
 
 
+"""
+TASK 3
+"""
+def balance_degree(graph):
+    nEdges = graph.getCountEdges()
+    median = nEdges // 2
 
+    sortedEdges = graph.getSortedEdgesByTimestamp()
+    latestEdges = graph.getLatestEdges()
 
-    # returns x, y with x=vector of timestamps and y=vector of accumulated closures since median
+    balanced = 0
+    weakly_balanced = 0
+    nb_triangles = 0
+
+    graph2 = Graph()
+    for i in range(median+1):
+        #ONLY ADD LATEST EDGE
+        s = sortedEdges[i].source
+        t = sortedEdges[i].target
+        if (s not in graph2.adj or t not in graph2.adj or (s not in graph2.adj[t] or t not in graph2.adj[s])):
+            graph2.addEdge(sortedEdges[i])
+
+    for i in range(median+1, nEdges):
+        newEdge = sortedEdges[i]
+        s = newEdge.source
+        t = newEdge.target
+        if (s not in graph2.adj or t not in graph2.adj or (s not in graph2.adj[t] or t not in graph2.adj[s])):
+            graph2.addEdge(newEdge)
+            third_nodes = set(graph2.adj[s]) & set(graph2.adj[t])
+            nb_triangles += len(third_nodes)
+            edge_1 = latestEdges[(s,t)]
+            for node in third_nodes:
+                edge_2 = latestEdges[(s,node)]
+                edge_3 = latestEdges[(t,node)]
+                nb_positive = 0
+                nb_negative = 0
+                for edge in (edge_1, edge_2, edge_3):
+                    if edge.weight >= 0:
+                        nb_positive += 1
+                    else:
+                        nb_negative += 1
+                if nb_positive == 3 or (nb_positive == 1 and nb_negative == 2):
+                    balanced += 1
+                elif nb_negative == 3:
+                    weakly_balanced += 1
+                weakly_balanced += balanced
+
+    return (balanced + 2 / 3 * weakly_balanced) / nb_triangles

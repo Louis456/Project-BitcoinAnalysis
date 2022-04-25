@@ -26,13 +26,15 @@ print("min Timestamp : ", timestampInfo[0])
 print("median Timestamp : ", timestampInfo[1])
 print("max Timestamp : ", timestampInfo[2])
 
-print("number of CC : ",connected_components(graph))
-print("NX number of CC : ",nx.number_connected_components(nxGraph))
+print("number of CC : ", connected_components(graph))
+print("NX number of CC : ", nx.number_connected_components(nxGraph))
 
 #print("number of bridges : ",bridges(graph))
-print("NX number of bridges : ",len(list(nx.bridges(nxGraph))))
+print("NX number of bridges : ", len(list(nx.bridges(nxGraph))))
 
-print("number of local bridges : ",local_bridges(graph))
-print("NX number of local bridges : ",len(list(nx.local_bridges(nxGraph, with_span=False))))
+print("number of local bridges : ", local_bridges(graph))
+print("NX number of local bridges : ", len(list(nx.local_bridges(nxGraph, with_span=False))))
 
-print("number or triad closed : ",triadic_closures(graph))
+print("number or triad closed : ", triadic_closures(graph))
+
+print("balance degree : ", balance_degree(graph))
