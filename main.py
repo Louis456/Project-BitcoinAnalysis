@@ -70,8 +70,10 @@ print("NX number of local bridges : ", len(list(nx.local_bridges(nxGraph, with_s
 
 print("number or triad closed : ", triadic_closures(graph)[2])
 
-print("balance degree : ", balance_degree(graph)[2])
+print("highest balance degree : ", balance_degree(graph)[2])
+print("highest balance degree at the timestamp : ", balance_degree(graph)[3])
 
-print("distance and nb path :  ", shortest_paths(graphTest)[2])
+print("distance and nb path :  ", shortest_paths(graph)[2])
+print("Longest path is", shortest_paths(graph)[3], " from", shortest_paths(graph)[4], " to", shortest_paths(graph)[5])
 
 print("page rank index :"+str(page_rank(graph)[0])+", value :"+str(page_rank(graph)[1]))

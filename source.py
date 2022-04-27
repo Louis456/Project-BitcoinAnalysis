@@ -1,4 +1,5 @@
 import csv
+import time
 import numpy as np
 from collections import deque
 
@@ -272,6 +273,10 @@ def balance_degree(graph):
 
     score_over_time = [(balanced + 2 / 3 * weakly_balanced) / nb_triangles] if nb_triangles > 0 else [0]
     timestamps = [median_timestamp]
+
+    max_score = score_over_time[0]
+    timestamp_at_max = timestamps[0]
+
     #ADD EDGES ONE BY ONE FROM MEDIAN AND UPDATE BALANCE DEGREE
     for i in range(median+1, nEdges,1):
         edge = sortedEdges[i]
@@ -308,11 +313,15 @@ def balance_degree(graph):
         weakly_balanced += added_to_weakly
         edges[(s,t)] = (added_to_balanced, added_to_weakly, edge.weight)
         edges[(t,s)] = (added_to_balanced, added_to_weakly, edge.weight)
-        score_over_time.append((balanced + 2 / 3 * weakly_balanced) / nb_triangles)
+        computed_score = (balanced + 2 / 3 * weakly_balanced) / nb_triangles
+        score_over_time.append(computed_score)
         timestamps.append(edge.timestamp)
+        if (computed_score) > max_score:
+            max_score = computed_score
+            timestamp_at_max = edge.timestamp
 
-    end_score = (balanced + 2 / 3 * weakly_balanced) / nb_triangles
-    return (score_over_time, timestamps, end_score)
+    
+    return (score_over_time, timestamps, max_score, timestamp_at_max)
 
 
 """
@@ -320,6 +329,9 @@ TASK 4
 """
 def shortest_paths(graph):
     pathsPerDist = {} # ex: {0: 1412, 1:1325, 2:784, ...}
+    longestPathStart = -1
+    longestPathEnd = -1
+    longestPathLength = -1
 
     biggestComp = connected_components(graph)[1]
     queue = deque() # linked-list
@@ -335,6 +347,10 @@ def shortest_paths(graph):
                 pathsPerDist[distTo[curr]] += 1
             else:
                 pathsPerDist[distTo[curr]] = 1
+            if distTo[curr] > longestPathLength:
+                longestPathLength = distTo[curr]
+                longestPathEnd = curr
+                longestPathStart = v
             if curr in graph.adjDirect:
                 for n in graph.adjDirect[curr]:
                     if n not in distTo:
@@ -343,7 +359,7 @@ def shortest_paths(graph):
 
     distances = pathsPerDist.keys()
     nbPaths = pathsPerDist.values()
-    return (distances, nbPaths, pathsPerDist)
+    return (distances, nbPaths, pathsPerDist, longestPathLength, longestPathStart, longestPathEnd)
 
 
 """
