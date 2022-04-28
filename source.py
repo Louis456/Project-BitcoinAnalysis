@@ -2,6 +2,7 @@ from copy import deepcopy
 import csv
 import time
 import numpy as np
+import pandas as pd
 from collections import deque
 
 class Edge():
@@ -15,24 +16,11 @@ class Edge():
         return self.source == other.source and self.target == other.target \
                 and self.weight == other.weight and self.timestamp == other.timestamp
 
-    def __lt__(self, other):
-        return self.weight < other.weight
-
-    def __le__(self, other):
-        return self.weight <= other.weight
-
-    def __gt__(self, other):
-        return self.weight > other.weight
-
-    def __ge__(self, other):
-        return self.weight >= other.weight
-
-
 class Graph():
     def __init__(self):
         self.adj = {}
         self.adjDirect = {}
-        self.biggestWeight = {}
+        self.adjDirectBiggestWeight = {}
         self.pointedBy = {}
         self.edges = []
         self.nE = 0
@@ -65,11 +53,11 @@ class Graph():
         elif source not in self.pointedBy[target]:
             self.pointedBy[target].append(source)
 
-        if (source, target) in self.biggestWeight:
-            if abs(edge.weight) > abs(self.biggestWeight[(source, target)]):
-                self.biggestWeight[(source, target)] = abs(edge.weight)
+        if (source, target) in self.adjDirectBiggestWeight:
+            if abs(edge.weight) > abs(self.adjDirectBiggestWeight[(source, target)]):
+                self.adjDirectBiggestWeight[(source, target)] = abs(edge.weight)
         else:
-            self.biggestWeight[(source, target)] = abs(edge.weight)
+            self.adjDirectBiggestWeight[(source, target)] = abs(edge.weight)
 
         self.edges.append(edge)
         self.nE += 1
@@ -77,43 +65,30 @@ class Graph():
         self.minTimeStamp = min(self.minTimeStamp, edge.timestamp)
         self.maxTimeStamp = max(self.minTimeStamp, edge.timestamp)
 
-    def removeEdge(self, edge: Edge):
-        pass
-
     def getSortedEdgesByTimestamp(self, reverse=False):
         return sorted(self.edges, key=lambda e: e.timestamp, reverse=reverse)
 
     def getSortedEdgesByWeight(self, reverse=False):
         return sorted(self.edges, key=lambda e: e.weight, reverse=reverse)
 
-    def getCountEdges(self):
-        return self.nE
-
-    def getCountVertices(self):
-        return self.nV
-
     def getTimestampsInfo(self):
         sortedEdges = self.getSortedEdgesByTimestamp()
         self.medianTimeStamp = sortedEdges[self.nE // 2].timestamp
         return (self.minTimeStamp, self.medianTimeStamp, self.maxTimeStamp)
 
-    def importCSV(self, filename):
-        with open(filename) as csvFile:
-            dataset = csv.reader(csvFile, delimiter=',')
-            lineCount = 0
-            for row in dataset:
-                if lineCount > 0:
-                    source = int(row[1])
-                    target = int(row[2])
-                    weight = int(row[3])
-                    timestamp = float(row[4])
-                    edge = Edge(source, target, weight, timestamp)
-                    self.addEdge(edge)
-                lineCount += 1
+    def importDataframe(self, dataframe):
+        for index, row in dataframe.iterrows():
+            self.addEdge(Edge(row['Source'], row['Target'], row['Weight'], row['Timestamp']))
 
 """
 TASK 1
 """
+
+def basic_properties(dataframe):
+    graph = Graph()
+    graph.importDataframe(dataframe)
+    return (connected_components(graph)[0], bridges(graph), local_bridges(graph))
+
 def connected_components(graph: Graph):
     """ O(v + e) """
     count = 0
@@ -192,10 +167,15 @@ def local_bridges(graph: Graph):
 """
 TASK 2
 """
-def triadic_closures(graph):
-    nEdges = graph.getCountEdges()
+def total_triadic_closures(dataframe):
+    graph = Graph()
+    graph.importDataframe(dataframe)
+    nEdges = graph.nE
     median = nEdges // 2
+
+
     sortedEdges = graph.getSortedEdgesByTimestamp()
+    visitedEdges = set()
 
     triads_closed = 0
     triads_closed_over_time = [0]
@@ -206,15 +186,19 @@ def triadic_closures(graph):
         #ONLY ADD OLDEST EDGE
         s = sortedEdges[i].source
         t = sortedEdges[i].target
-        if (s not in graph2.adj or t not in graph2.adj or (s not in graph2.adj[t] or t not in graph2.adj[s])):
+        if (s, t) not in visitedEdges:
+            visitedEdges.add((s, t))
+            visitedEdges.add((t, s))
             graph2.addEdge(sortedEdges[i])
 
     for i in range(median+1,nEdges,1):
         newEdge = sortedEdges[i]
         s = newEdge.source
         t = newEdge.target
-        if (s not in graph2.adj or t not in graph2.adj or (s not in graph2.adj[t] or t not in graph2.adj[s])):
+        if (s, t) not in visitedEdges:
             graph2.addEdge(newEdge)
+            visitedEdges.add((s, t))
+            visitedEdges.add((t, s))
             triads_closed += len(set(graph2.adj[s]) & set(graph2.adj[t]))
             triads_closed_over_time.append(triads_closed)
             timestamps.append(newEdge.timestamp)
@@ -225,13 +209,14 @@ def triadic_closures(graph):
 """
 TASK 3
 """
-def balance_degree(graph):
-    nEdges = graph.getCountEdges()
+def end_balanced_degree(dataframe):
+    graph = Graph()
+    graph.importDataframe(dataframe)
+    nEdges = graph.nE
     median = nEdges // 2
 
-    reverseSortedEdges = graph.getSortedEdgesByTimestamp(reverse=True)
     sortedEdges = graph.getSortedEdgesByTimestamp()
-    median_timestamp = reverseSortedEdges[median].timestamp
+    median_timestamp = sortedEdges[median].timestamp
 
     balanced = 0
     weakly_balanced = 0
@@ -251,49 +236,59 @@ def balance_degree(graph):
         t = edge.target
         third_nodes = set(graph2.adj[s]) & set(graph2.adj[t])
         if (s,t) in edges:
-            addedTo = edges[(s,t)]
-            balanced -= addedTo[0]
-            weakly_balanced -= addedTo[1]
-            nb_triangles -= addedTo[3]
+            prevWeight = edges[(s, t)]
+            if (prevWeight < 0 and edge.weight >= 0) or (prevWeight >= 0 and edge.weight < 0):
+                withdraw_balanced, withdraw_weakly = edge_balance(s, t, prevWeight, third_nodes, edges)
+                balanced -= withdraw_balanced
+                weakly_balanced -= withdraw_weakly
+                added_to_balanced, added_to_weakly = edge_balance(s, t, edge.weight, third_nodes, edges)
+                balanced += added_to_balanced
+                weakly_balanced += added_to_weakly
+        else:
+            nb_triangles += len(third_nodes)
+            added_to_balanced, added_to_weakly = edge_balance(s, t, edge.weight, third_nodes, edges)
+            balanced += added_to_balanced
+            weakly_balanced += added_to_weakly
 
-        nb_triangles += len(third_nodes)
-        weight_edge_1 = edge.weight
-        added_to_balanced = 0
-        added_to_weakly = 0
-        for node in third_nodes:
-            weight_edge_2 = edges[(s,node)][2]
-            weight_edge_3 = edges[(t,node)][2]
-            nb_positive = 0
-            nb_negative = 0
-            for weight in (weight_edge_1, weight_edge_2, weight_edge_3):
-                if weight >= 0:
-                    nb_positive += 1
-                else:
-                    nb_negative += 1
-            if nb_positive == 3 or (nb_positive == 1 and nb_negative == 2):
-                added_to_balanced += 1
-            elif nb_negative == 3:
-                added_to_weakly += 1
-
-        balanced += added_to_balanced
-        weakly_balanced += added_to_weakly
-        edges[(s,t)] = (added_to_balanced, added_to_weakly, edge.weight, len(third_nodes))
-        edges[(t,s)] = (added_to_balanced, added_to_weakly, edge.weight, len(third_nodes))
+        edges[(s,t)] = edge.weight
+        edges[(t,s)] = edge.weight
         if edge.timestamp >= median_timestamp:
-            computed_score = (balanced + 2 / 3 * weakly_balanced) / nb_triangles if nb_triangles > 0 else 0
+            computed_score = (balanced + ((2 / 3) * weakly_balanced)) / nb_triangles if nb_triangles > 0 else 0
             score_over_time.append(computed_score)
             timestamps.append(edge.timestamp)
             if (computed_score) > max_score:
                 max_score = computed_score
                 timestamp_at_max = edge.timestamp
-    
-    return (timestamps, score_over_time, max_score, timestamp_at_max)
+
+    return (timestamps, score_over_time, max_score, timestamp_at_max, score_over_time[-1])
+
+def edge_balance(source, target, weight, third_nodes, edges):
+    weight_edge_1 = weight
+    added_to_balanced = 0
+    added_to_weakly = 0
+    for node in third_nodes:
+        weight_edge_2 = edges[(source, node)]
+        weight_edge_3 = edges[(target, node)]
+        nb_positive = 0
+        nb_negative = 0
+        for weight in (weight_edge_1, weight_edge_2, weight_edge_3):
+            if weight >= 0:
+                nb_positive += 1
+            else:
+                nb_negative += 1
+        if nb_positive == 3 or (nb_positive == 1 and nb_negative == 2):
+            added_to_balanced += 1
+        elif nb_negative == 3:
+            added_to_weakly += 1
+    return added_to_balanced, added_to_weakly
 
 
 """
 TASK 4
 """
-def shortest_paths(graph):
+def distances(dataframe):
+    graph = Graph()
+    graph.importDataframe(dataframe)
     pathsPerDist = {} # ex: {0: 1412, 1:1325, 2:784, ...}
     longestPathStart = -1
     longestPathEnd = -1
@@ -324,22 +319,29 @@ def shortest_paths(graph):
                         queue.append(n)
 
     pathsPerDist[0] = 0 # Remove paths of length 0 (the starting nodes)
-    distances = pathsPerDist.keys()
-    nbPaths = pathsPerDist.values()
+    #For the plot
+    distances = []
+    nbPaths = []
+    for key, value in pathsPerDist.items():
+        if key > 0:
+            distances.append(key)
+            nbPaths.append(value)
     return (distances, nbPaths, pathsPerDist, longestPathLength, longestPathStart, longestPathEnd)
 
 
 """
 TASK 5
 """
-def page_rank(graph):
+def pagerank(dataframe):
+    graph = Graph()
+    graph.importDataframe(dataframe)
     nbNodes = len(graph.adj)
 
     page_ranks = {}
     for v in graph.adj:
         page_ranks[v] = 1/nbNodes
     d = 0.85
-    epsilon = 1e-8
+    epsilon = 10e-10
     it = 0
     has_converged = False
     while not has_converged:
@@ -351,18 +353,16 @@ def page_rank(graph):
                 for n in graph.pointedBy[p]:
                     sum_outgoing_weights = 0
                     for out in graph.adjDirect[n]:
-                        sum_outgoing_weights += graph.biggestWeight[(n, out)]
-                    flow_amount += (old_page_ranks[n] * graph.biggestWeight[(n, p)]) / sum_outgoing_weights
+                        sum_outgoing_weights += graph.adjDirectBiggestWeight[(n, out)]
+                    flow_amount += (old_page_ranks[n] * graph.adjDirectBiggestWeight[(n, p)]) / sum_outgoing_weights
             page_ranks[p] = (1 - d) + d*flow_amount
-
+        sum_diff = 0
         for i in page_ranks:
-            diff = abs(old_page_ranks[i]-page_ranks[i])
-            if diff > epsilon:
-                has_converged = False
-                break
-            has_converged = True
+            sum_diff += abs(old_page_ranks[i]-page_ranks[i])
+        if sum_diff < epsilon:
+            has_converged=True
         print("iteration of pagerank : ",it)
-            
+
     max_val = 0
     max_index = 0
     for v in page_ranks:
