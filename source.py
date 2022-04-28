@@ -198,7 +198,7 @@ def triadic_closures(graph):
 
     triads_closed = 0
     triads_closed_over_time = [0]
-    timestamps = [sortedEdges[median]]
+    timestamps = [sortedEdges[median].timestamp]
 
     graph2 = Graph()
     for i in range(median+1):
@@ -218,7 +218,7 @@ def triadic_closures(graph):
             triads_closed_over_time.append(triads_closed)
             timestamps.append(newEdge.timestamp)
 
-    return (triads_closed_over_time, timestamps, triads_closed)
+    return (timestamps, triads_closed_over_time, triads_closed)
 
 
 """
@@ -321,7 +321,7 @@ def balance_degree(graph):
             timestamp_at_max = edge.timestamp
 
     
-    return (score_over_time, timestamps, max_score, timestamp_at_max)
+    return (timestamps, score_over_time, max_score, timestamp_at_max)
 
 
 """
@@ -357,6 +357,7 @@ def shortest_paths(graph):
                         distTo[n] = distTo[curr] + 1
                         queue.append(n)
 
+    pathsPerDist[0] = 0 # Remove paths of length 0 (the starting nodes)
     distances = pathsPerDist.keys()
     nbPaths = pathsPerDist.values()
     return (distances, nbPaths, pathsPerDist, longestPathLength, longestPathStart, longestPathEnd)
