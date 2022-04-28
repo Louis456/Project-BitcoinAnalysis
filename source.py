@@ -1,3 +1,4 @@
+from copy import deepcopy
 import csv
 import time
 import numpy as np
@@ -68,7 +69,7 @@ class Graph():
             if abs(edge.weight) > abs(self.biggestWeight[(source, target)]):
                 self.biggestWeight[(source, target)] = abs(edge.weight)
         else:
-            self.biggestWeight[(source, target)] = edge.weight
+            self.biggestWeight[(source, target)] = abs(edge.weight)
 
         self.edges.append(edge)
         self.nE += 1
@@ -262,7 +263,6 @@ def balance_degree(graph):
                         nb_negative += 1
                 if nb_positive == 3 or (nb_positive == 1 and nb_negative == 2):
                     added_to_balanced += 1
-                    added_to_weakly += 1
                 elif nb_negative == 3:
                     added_to_weakly += 1
 
@@ -273,6 +273,8 @@ def balance_degree(graph):
 
     score_over_time = [(balanced + 2 / 3 * weakly_balanced) / nb_triangles] if nb_triangles > 0 else [0]
     timestamps = [median_timestamp]
+    print("balance at median :",score_over_time)
+
 
     max_score = score_over_time[0]
     timestamp_at_max = timestamps[0]
@@ -305,7 +307,6 @@ def balance_degree(graph):
                     nb_negative += 1
             if nb_positive == 3 or (nb_positive == 1 and nb_negative == 2):
                 added_to_balanced += 1
-                added_to_weakly += 1
             elif nb_negative == 3:
                 added_to_weakly += 1
 
@@ -369,24 +370,16 @@ TASK 5
 def page_rank(graph):
     nbNodes = len(graph.adj)
 
-    page_ranks = np.full(nbNodes, 1/nbNodes)
+    page_ranks = {}
+    for v in graph.adj:
+        page_ranks[v] = 1/nbNodes
     d = 0.85
-
-    nEdges = graph.getCountEdges()
-    """
-    reverseSortedEdgesByWeight = graph.getSortedEdgesByWeight(reverse=True)
-    graph2 = Graph()
-    for i in range(nEdges):
-        edge = reverseSortedEdgesByWeight[i]
-        s = edge.source
-        t = edge.target
-        if s not in graph2.adjDirect or t not in graph2.adjDirect[s]:
-            graph2.addEdge(edge)
-    """
-
+    epsilon = 1e-8
+    it = 0
     has_converged = False
     while not has_converged:
-        old_page_ranks = page_ranks
+        it += 1
+        old_page_ranks = deepcopy(page_ranks)
         for p in graph.adj:
             flow_amount = 0
             if p in graph.pointedBy:
@@ -394,10 +387,22 @@ def page_rank(graph):
                     sum_outgoing_weights = 0
                     for out in graph.adjDirect[n]:
                         sum_outgoing_weights += graph.biggestWeight[(n, out)]
-                    flow_amount += (page_ranks[n] * graph.biggestWeight[(n, p)]) / sum_outgoing_weights
+                    flow_amount += (old_page_ranks[n] * graph.biggestWeight[(n, p)]) / sum_outgoing_weights
             page_ranks[p] = (1 - d) + d*flow_amount
 
-        if np.all(np.abs(old_page_ranks-page_ranks)) < 1e-8:
+        for i in page_ranks:
+            diff = abs(old_page_ranks[i]-page_ranks[i])
+            if diff > epsilon:
+                has_converged = False
+                break
             has_converged = True
+        print("iteration of pagerank : ",it)
+            
+    max_val = 0
+    max_index = 0
+    for v in page_ranks:
+        if page_ranks[v] > max_val:
+            max_val = page_ranks[v]
+            max_index = v
 
-    return np.argmax(page_ranks), np.max(page_ranks)
+    return max_index, max_val
