@@ -237,51 +237,15 @@ def balance_degree(graph):
     weakly_balanced = 0
     nb_triangles = 0
     edges = {}
+
+    score_over_time = []
+    timestamps = []
+    max_score = -1
+    timestamp_at_max = -1
+
     graph2 = Graph()
     #ONLY ADD LATEST EDGE UP TO MEDIAN
-    for i in range(median, nEdges):
-        edge = reverseSortedEdges[i]
-        s = edge.source
-        t = edge.target
-        #IF LATEST EDGE NOT ALREADY IN THE GRAPH
-        if (s not in graph2.adj or t not in graph2.adj or (s not in graph2.adj[t] or t not in graph2.adj[s])):
-            graph2.addEdge(edge)
-            third_nodes = set(graph2.adj[s]) & set(graph2.adj[t])
-            nb_triangles += len(third_nodes)
-            weight_edge_1 = edge.weight
-            added_to_balanced = 0
-            added_to_weakly = 0
-            for node in third_nodes:
-                weight_edge_2 = edges[(s,node)][2]
-                weight_edge_3 = edges[(t,node)][2]
-                nb_positive = 0
-                nb_negative = 0
-                for weight in (weight_edge_1, weight_edge_2, weight_edge_3):
-                    if weight >= 0:
-                        nb_positive += 1
-                    else:
-                        nb_negative += 1
-                if nb_positive == 3 or (nb_positive == 1 and nb_negative == 2):
-                    added_to_balanced += 1
-                elif nb_negative == 3:
-                    added_to_weakly += 1
-
-            balanced += added_to_balanced
-            weakly_balanced += added_to_weakly
-            edges[(s,t)] = (added_to_balanced, added_to_weakly, edge.weight)
-            edges[(t,s)] = (added_to_balanced, added_to_weakly, edge.weight)
-
-    score_over_time = [(balanced + 2 / 3 * weakly_balanced) / nb_triangles] if nb_triangles > 0 else [0]
-    timestamps = [median_timestamp]
-    print("balance at median :",score_over_time)
-
-
-    max_score = score_over_time[0]
-    timestamp_at_max = timestamps[0]
-
-    #ADD EDGES ONE BY ONE FROM MEDIAN AND UPDATE BALANCE DEGREE
-    for i in range(median+1, nEdges,1):
-        edge = sortedEdges[i]
+    for edge in sortedEdges:
         graph2.addEdge(edge)
         s = edge.source
         t = edge.target
@@ -290,8 +254,9 @@ def balance_degree(graph):
             addedTo = edges[(s,t)]
             balanced -= addedTo[0]
             weakly_balanced -= addedTo[1]
-        else:
-            nb_triangles += len(third_nodes)
+            nb_triangles -= addedTo[3]
+
+        nb_triangles += len(third_nodes)
         weight_edge_1 = edge.weight
         added_to_balanced = 0
         added_to_weakly = 0
@@ -312,15 +277,15 @@ def balance_degree(graph):
 
         balanced += added_to_balanced
         weakly_balanced += added_to_weakly
-        edges[(s,t)] = (added_to_balanced, added_to_weakly, edge.weight)
-        edges[(t,s)] = (added_to_balanced, added_to_weakly, edge.weight)
-        computed_score = (balanced + 2 / 3 * weakly_balanced) / nb_triangles
-        score_over_time.append(computed_score)
-        timestamps.append(edge.timestamp)
-        if (computed_score) > max_score:
-            max_score = computed_score
-            timestamp_at_max = edge.timestamp
-
+        edges[(s,t)] = (added_to_balanced, added_to_weakly, edge.weight, len(third_nodes))
+        edges[(t,s)] = (added_to_balanced, added_to_weakly, edge.weight, len(third_nodes))
+        if edge.timestamp >= median_timestamp:
+            computed_score = (balanced + 2 / 3 * weakly_balanced) / nb_triangles if nb_triangles > 0 else 0
+            score_over_time.append(computed_score)
+            timestamps.append(edge.timestamp)
+            if (computed_score) > max_score:
+                max_score = computed_score
+                timestamp_at_max = edge.timestamp
     
     return (timestamps, score_over_time, max_score, timestamp_at_max)
 
