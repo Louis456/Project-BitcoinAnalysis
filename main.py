@@ -15,45 +15,10 @@ for index, row in dataframe.iterrows():
     nxGraph.add_edge(source, target, weight=weight)
 
 graph.importDataframe(dataframe)
-graphTest = Graph()
 
-"""
-graphTest.addEdge(Edge(0,1,4,1))
-graphTest.addEdge(Edge(0,3,5,2))
-graphTest.addEdge(Edge(1,2,2,3))
-graphTest.addEdge(Edge(3,2,10,4))
-graphTest.addEdge(Edge(3,4,7,5))
-graphTest.addEdge(Edge(4,2,2,6))
-graphTest.addEdge(Edge(4,0,1,7))
-graphTest.addEdge(Edge(4,1,3,8))
-pagerank_test_res = pagerank(graphTest)
-print("page rank index :"+str(pagerank_test_res[0])+", value :"+str(pagerank_test_res[1]))
-print("graphTest adjDirBiggestWeight : ",graphTest.biggestWeight)
-print("graph adj :",graphTest.adj)
-print("graph adjDirect :",graphTest.adjDirect)
-print("graph pointedBy: ",graphTest.pointedBy)
-"""
-
-"""
-graphTest.addEdge(Edge(11, 12, -1, 10))
-graphTest.addEdge(Edge(12, 13, -1, 10))
-graphTest.addEdge(Edge(13, 14, -1, 10))
-graphTest.addEdge(Edge(14, 11, -1, 10))
-graphTest.addEdge(Edge(15, 16, -1, 10))
-graphTest.addEdge(Edge(16, 17, -1, 10))
-graphTest.addEdge(Edge(17, 15, -1, 10))
-"""
-
-"""
-print("degree : ",balance_degree(graphTest)[2])
-
-print("nb of cc : ",connected_components(graphTest)[0])
-print("components : ",connected_components(graphTest)[1])
-"""
 
 print("number of Edges : ", graph.nE)
 print("number of Vertices : ", graph.nV)
-
 
 timestampInfo = graph.getTimestampsInfo()
 print("min Timestamp : ", timestampInfo[0])
@@ -63,7 +28,7 @@ print("max Timestamp : ", timestampInfo[2])
 
 """
     Task 1
-
+"""
 number_connected_components, bridges, local_bridges = basic_properties(dataframe)
 print("number of CC : ", number_connected_components)
 print("NX number of CC : ", nx.number_connected_components(nxGraph))
@@ -74,7 +39,7 @@ print("NX number of bridges : ", len(list(nx.bridges(nxGraph))))
 print("number of local bridges : ", local_bridges)
 print("NX number of local bridges : ", len(list(nx.local_bridges(nxGraph, with_span=False))))
 
-"""
+
 """
     Task 2
 """

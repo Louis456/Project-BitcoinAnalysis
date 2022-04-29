@@ -6,7 +6,7 @@ import pandas as pd
 from collections import deque
 
 class Edge():
-    def __init__(self, source, target, weight, timestamp):
+    def __init__(self, source: int, target: int, weight: int, timestamp: float):
         self.source = source
         self.target = target
         self.weight = weight
@@ -18,10 +18,10 @@ class Edge():
 
 class Graph():
     def __init__(self):
-        self.adj = {}
-        self.adjDirect = {}
-        self.adjDirectBiggestWeight = {}
-        self.pointedBy = {}
+        self.adj = {} # adjacency list
+        self.adjDirect = {} # directed adjacency list
+        self.adjDirectBiggestWeight = {} # directed adjacency list keeping only the biggest weights
+        self.pointedBy = {} # inverse directed adjacency list
         self.edges = []
         self.nE = 0
         self.nV = 0
@@ -83,14 +83,12 @@ class Graph():
 """
 TASK 1
 """
-
 def basic_properties(dataframe):
     graph = Graph()
     graph.importDataframe(dataframe)
     return (connected_components(graph)[0], bridges(graph), local_bridges(graph))
 
 def connected_components(graph: Graph):
-    """ O(v + e) """
     count = 0
     marked = set()
     stack = []
@@ -111,6 +109,7 @@ def connected_components(graph: Graph):
                     if n not in marked:
                         marked.add(n)
                         stack.append(n)
+
             components.append(curr_component)
             if len(curr_component) > biggest_len:
                 biggest_index = count-1
@@ -132,7 +131,7 @@ def bridges(graph: Graph):
                     marked = set()
                     marked.add(fr)
                     found = False
-                    # add neighbors without the to of the current tested edge
+                    # add neighbors but not the target
                     for n in graph.adj[fr]:
                         marked.add(n)
                         if n != to:
@@ -152,7 +151,6 @@ def bridges(graph: Graph):
                         count += 1
     return count
 
-
 def local_bridges(graph: Graph):
     local_bridges = 0
     marked = set()
@@ -160,9 +158,11 @@ def local_bridges(graph: Graph):
         marked.add(v)
         for u in graph.adj[v]:
             if u not in marked:
+                #If u and v have no neighbors in common then it's a local bridge
                 if (not (set(graph.adj[v]) & set(graph.adj[u]))):
                     local_bridges += 1
     return local_bridges
+
 
 """
 TASK 2
@@ -173,32 +173,35 @@ def total_triadic_closures(dataframe):
     nEdges = graph.nE
     median = nEdges // 2
 
-
     sortedEdges = graph.getSortedEdgesByTimestamp()
+    timestamps = [sortedEdges[median].timestamp]
     visitedEdges = set()
 
     triads_closed = 0
     triads_closed_over_time = [0]
-    timestamps = [sortedEdges[median].timestamp]
 
     graph2 = Graph()
     for i in range(median+1):
-        #ONLY ADD OLDEST EDGE
+        #Add edges till median
         s = sortedEdges[i].source
         t = sortedEdges[i].target
+        #Only add the first edge if multiple edges between same nodes to keep the oldest
         if (s, t) not in visitedEdges:
             visitedEdges.add((s, t))
             visitedEdges.add((t, s))
             graph2.addEdge(sortedEdges[i])
 
+    #Add edges from median
     for i in range(median+1,nEdges,1):
         newEdge = sortedEdges[i]
         s = newEdge.source
         t = newEdge.target
+        #only add oldest
         if (s, t) not in visitedEdges:
             graph2.addEdge(newEdge)
             visitedEdges.add((s, t))
             visitedEdges.add((t, s))
+            #Add number of closures created
             triads_closed += len(set(graph2.adj[s]) & set(graph2.adj[t]))
             triads_closed_over_time.append(triads_closed)
             timestamps.append(newEdge.timestamp)
@@ -215,6 +218,7 @@ def end_balanced_degree(dataframe):
     nEdges = graph.nE
     median = nEdges // 2
 
+    #sort edges in increasing timestamp order
     sortedEdges = graph.getSortedEdgesByTimestamp()
     median_timestamp = sortedEdges[median].timestamp
 
@@ -229,27 +233,33 @@ def end_balanced_degree(dataframe):
     timestamp_at_max = -1
 
     graph2 = Graph()
-    #ONLY ADD LATEST EDGE UP TO MEDIAN
+    #Add edge one by one
     for edge in sortedEdges:
         graph2.addEdge(edge)
         s = edge.source
         t = edge.target
+        #Get third nodes of every triangle formed with this edge
         third_nodes = set(graph2.adj[s]) & set(graph2.adj[t])
+        #If already in the graph then update the values
         if (s,t) in edges:
             prevWeight = edges[(s, t)]
             if (prevWeight < 0 and edge.weight >= 0) or (prevWeight >= 0 and edge.weight < 0):
+                #Remove from the count balanced and weakly balanced triangle with previous weight
                 withdraw_balanced, withdraw_weakly = edge_balance(s, t, prevWeight, third_nodes, edges)
                 balanced -= withdraw_balanced
                 weakly_balanced -= withdraw_weakly
+                #Add to the count balanced and weakly balanced triangle with new weight
                 added_to_balanced, added_to_weakly = edge_balance(s, t, edge.weight, third_nodes, edges)
                 balanced += added_to_balanced
                 weakly_balanced += added_to_weakly
+        #If not in then compute new triangles
         else:
             nb_triangles += len(third_nodes)
             added_to_balanced, added_to_weakly = edge_balance(s, t, edge.weight, third_nodes, edges)
             balanced += added_to_balanced
             weakly_balanced += added_to_weakly
 
+        #update weights
         edges[(s,t)] = edge.weight
         edges[(t,s)] = edge.weight
         if edge.timestamp >= median_timestamp:
@@ -262,10 +272,16 @@ def end_balanced_degree(dataframe):
 
     return (timestamps, score_over_time, max_score, timestamp_at_max, score_over_time[-1])
 
+
+"""
+input : Given an edge (source,target,weight) and third nodes (triangles)
+returns : number of balanced triangles and weakly-balanced triangles
+"""
 def edge_balance(source, target, weight, third_nodes, edges):
     weight_edge_1 = weight
     added_to_balanced = 0
     added_to_weakly = 0
+    #For each triangle, compute positive and negative edges
     for node in third_nodes:
         weight_edge_2 = edges[(source, node)]
         weight_edge_3 = edges[(target, node)]
@@ -347,16 +363,21 @@ def pagerank(dataframe):
     while not has_converged:
         it += 1
         old_page_ranks = deepcopy(page_ranks)
+        #For each vertice p , we update the score
         for p in graph.adj:
             flow_amount = 0
             if p in graph.pointedBy:
+                #For each vertice n pointing to p
                 for n in graph.pointedBy[p]:
                     sum_outgoing_weights = 0
+                    #compute amout flowing out of n to p
                     for out in graph.adjDirect[n]:
                         sum_outgoing_weights += graph.adjDirectBiggestWeight[(n, out)]
                     flow_amount += (old_page_ranks[n] * graph.adjDirectBiggestWeight[(n, p)]) / sum_outgoing_weights
+            #Update weighted page rank score
             page_ranks[p] = (1 - d) + d*flow_amount
         sum_diff = 0
+        #Check convergence
         for i in page_ranks:
             sum_diff += abs(old_page_ranks[i]-page_ranks[i])
         if sum_diff < epsilon:

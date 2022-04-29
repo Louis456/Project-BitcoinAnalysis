@@ -3,12 +3,7 @@ import matplotlib.pyplot as plt
 
 def print_plot(array_x, array_y, name, xlabel, ylabel, out_filename):
     fig = plt.figure()
-    std_scaling = 1
     plt.plot(array_x, array_y)
-
-    #plt.legend()
-    #plt.xlim(min(array_x), max(array_x))
-    #plt.ylim(min(array_y), max(array_y))
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(name)
