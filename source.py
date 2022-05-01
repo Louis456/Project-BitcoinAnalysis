@@ -92,6 +92,8 @@ def connected_components(graph: Graph):
     count = 0
     marked = set()
     stack = []
+
+    #For task 2.4
     components = []
     biggest_len = 0
     biggest_index = 0
@@ -110,13 +112,14 @@ def connected_components(graph: Graph):
                         marked.add(n)
                         stack.append(n)
 
+            #Append current component and check if it is the biggest for task 2.4
             components.append(curr_component)
             if len(curr_component) > biggest_len:
                 biggest_index = count-1
                 biggest_len = len(curr_component)
 
-
-    return (count, components[biggest_index])
+    biggest_component = components[biggest_index]
+    return (count, biggest_component)
 
 def bridges(graph: Graph):
     count = 0
@@ -227,9 +230,9 @@ def end_balanced_degree(dataframe):
     nb_triangles = 0
     edges = {}
 
-    score_over_time = []
+    balance_over_time = []
     timestamps = []
-    max_score = -1
+    max_balance = -1
     timestamp_at_max = -1
 
     graph2 = Graph()
@@ -264,13 +267,14 @@ def end_balanced_degree(dataframe):
         edges[(t,s)] = edge.weight
         if edge.timestamp >= median_timestamp:
             computed_score = (balanced + ((2 / 3) * weakly_balanced)) / nb_triangles if nb_triangles > 0 else 0
-            score_over_time.append(computed_score)
+            balance_over_time.append(computed_score)
             timestamps.append(edge.timestamp)
-            if (computed_score) > max_score:
-                max_score = computed_score
+            if (computed_score) > max_balance:
+                max_balance = computed_score
                 timestamp_at_max = edge.timestamp
+    end_balance = balance_over_time[-1]
 
-    return (timestamps, score_over_time, max_score, timestamp_at_max, score_over_time[-1])
+    return (timestamps, balance_over_time, max_balance, timestamp_at_max, end_balance)
 
 
 """
